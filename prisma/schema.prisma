@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+}
+
+model Place {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String        @unique
+  sortOrder     Int           @default(0)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  subcategories Subcategory[]
+  expenses      Expense[]
+}
+
+model Subcategory {
+  id         String    @id @default(uuid())
+  categoryId String
+  name       String
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  expenses   Expense[]
+
+  @@unique([categoryId, name])
+}
+
+model Expense {
+  id            String       @id @default(uuid())
+  expenseDate   DateTime
+  amount        Decimal      @db.Decimal(12, 2)
+  categoryId    String
+  subcategoryId String?
+  placeId       String?
+  personId      String
+  note          String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+  category      Category     @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  place         Place?       @relation(fields: [placeId], references: [id])
+  person        Person       @relation(fields: [personId], references: [id])
+
+  @@index([expenseDate])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([personId])
+  @@index([placeId])
+}
