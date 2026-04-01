@@ -12,8 +12,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:seed": "ts-node-dev --transpile-only prisma/seed.ts",
-    "import:marzo2026": "ts-node-dev --transpile-only prisma/import-marzo-2026.ts"
+    "prisma:seed": "ts-node-dev --transpile-only prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
