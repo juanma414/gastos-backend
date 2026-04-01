@@ -1,8 +1,41 @@
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/password";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  await prisma.user.upsert({
+    where: { email: "juan@gastos.local" },
+    update: {
+      name: "Juan",
+      role: "ADMIN",
+      isActive: true
+    },
+    create: {
+      name: "Juan",
+      email: "juan@gastos.local",
+      passwordHash: hashPassword("Juan1234"),
+      role: "ADMIN",
+      isActive: true
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "ludmi@gastos.local" },
+    update: {
+      name: "Ludmi",
+      role: "MEMBER",
+      isActive: true
+    },
+    create: {
+      name: "Ludmi",
+      email: "ludmi@gastos.local",
+      passwordHash: hashPassword("Ludmi1234"),
+      role: "MEMBER",
+      isActive: true
+    }
+  });
+
   await prisma.person.upsert({
     where: { name: "Juan" },
     update: {},
