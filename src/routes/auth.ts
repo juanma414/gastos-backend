@@ -7,7 +7,7 @@ import { requireAuth, signAuthToken } from "../middleware/auth";
 export const authRouter = Router();
 
 const loginSchema = z.object({
-  email: z.string().trim().email(),
+  identifier: z.string().trim().min(1).max(120),
   password: z.string().min(6).max(120)
 });
 
@@ -22,8 +22,19 @@ authRouter.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
   }
 
-  const email = parsed.data.email.toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
+  const identifier = parsed.data.identifier.trim();
+  const normalized = identifier.toLowerCase();
+
+  const user = await prisma.user.findFirst({
+    where: {
+      isActive: true,
+      OR: [
+        { email: { equals: normalized, mode: "insensitive" } },
+        { name: { equals: identifier, mode: "insensitive" } }
+      ]
+    }
+  });
+
   if (!user || !user.isActive) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
