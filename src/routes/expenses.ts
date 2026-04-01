@@ -14,6 +14,20 @@ const createExpenseSchema = z.object({
   note: z.string().max(500).optional().nullable()
 });
 
+const updateExpenseSchema = z
+  .object({
+    expenseDate: z.string().date().optional(),
+    amount: z.number().positive().optional(),
+    categoryId: z.string().uuid().optional(),
+    subcategoryId: z.string().uuid().nullable().optional(),
+    placeId: z.string().uuid().nullable().optional(),
+    personId: z.string().uuid().optional(),
+    note: z.string().max(500).optional().nullable()
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field is required"
+  });
+
 const listQuerySchema = z.object({
   from: z.string().date().optional(),
   to: z.string().date().optional(),
@@ -97,4 +111,48 @@ expensesRouter.get("/", async (req, res) => {
   });
 
   return res.json(rows);
+});
+
+expensesRouter.patch("/:id", async (req, res) => {
+  const parsed = updateExpenseSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
+  }
+
+  const payload = parsed.data;
+  const existing = await prisma.expense.findUnique({ where: { id: req.params.id } });
+  if (!existing || existing.deletedAt) {
+    return res.status(404).json({ error: "Expense not found" });
+  }
+
+  const categoryId = payload.categoryId ?? existing.categoryId;
+  const subcategoryId = payload.subcategoryId !== undefined ? payload.subcategoryId : existing.subcategoryId;
+
+  if (subcategoryId) {
+    const subcategory = await prisma.subcategory.findUnique({ where: { id: subcategoryId } });
+    if (!subcategory || subcategory.categoryId !== categoryId) {
+      return res.status(400).json({ error: "Subcategoria invalida para la categoria seleccionada" });
+    }
+  }
+
+  const updated = await prisma.expense.update({
+    where: { id: req.params.id },
+    data: {
+      ...(payload.expenseDate ? { expenseDate: new Date(payload.expenseDate) } : {}),
+      ...(payload.amount !== undefined ? { amount: payload.amount } : {}),
+      ...(payload.categoryId !== undefined ? { categoryId: payload.categoryId } : {}),
+      ...(payload.subcategoryId !== undefined ? { subcategoryId: payload.subcategoryId } : {}),
+      ...(payload.placeId !== undefined ? { placeId: payload.placeId } : {}),
+      ...(payload.personId !== undefined ? { personId: payload.personId } : {}),
+      ...(payload.note !== undefined ? { note: payload.note } : {})
+    },
+    include: {
+      category: true,
+      subcategory: true,
+      person: true,
+      place: true
+    }
+  });
+
+  return res.json(updated);
 });
