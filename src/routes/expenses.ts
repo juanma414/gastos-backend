@@ -37,6 +37,28 @@ const listQuerySchema = z.object({
   placeId: z.string().uuid().optional()
 });
 
+async function findDuplicateExpense(params: {
+  expenseDate: Date;
+  amount: number;
+  categoryId: string;
+  subcategoryId: string | null;
+  placeId: string | null;
+  excludeId?: string;
+}) {
+  return prisma.expense.findFirst({
+    where: {
+      expenseDate: params.expenseDate,
+      amount: params.amount,
+      categoryId: params.categoryId,
+      subcategoryId: params.subcategoryId,
+      placeId: params.placeId,
+      deletedAt: null,
+      ...(params.excludeId ? { NOT: { id: params.excludeId } } : {})
+    },
+    select: { id: true }
+  });
+}
+
 expensesRouter.post("/", async (req, res) => {
   const parsed = createExpenseSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -53,6 +75,20 @@ expensesRouter.post("/", async (req, res) => {
     if (!subcategory || subcategory.categoryId !== payload.categoryId) {
       return res.status(400).json({ error: "Subcategoria invalida para la categoria seleccionada" });
     }
+  }
+
+  const duplicate = await findDuplicateExpense({
+    expenseDate: new Date(payload.expenseDate),
+    amount: payload.amount,
+    categoryId: payload.categoryId,
+    subcategoryId: payload.subcategoryId ?? null,
+    placeId: payload.placeId ?? null
+  });
+
+  if (duplicate) {
+    return res.status(409).json({
+      error: "Ya existe una carga con el mismo importe, fecha, categoría, subcategoría y lugar"
+    });
   }
 
   const created = await prisma.expense.create({
@@ -127,12 +163,30 @@ expensesRouter.patch("/:id", async (req, res) => {
 
   const categoryId = payload.categoryId ?? existing.categoryId;
   const subcategoryId = payload.subcategoryId !== undefined ? payload.subcategoryId : existing.subcategoryId;
+  const placeId = payload.placeId !== undefined ? payload.placeId : existing.placeId;
+  const expenseDate = payload.expenseDate ? new Date(payload.expenseDate) : existing.expenseDate;
+  const amount = payload.amount !== undefined ? payload.amount : Number(existing.amount);
 
   if (subcategoryId) {
     const subcategory = await prisma.subcategory.findUnique({ where: { id: subcategoryId } });
     if (!subcategory || subcategory.categoryId !== categoryId) {
       return res.status(400).json({ error: "Subcategoria invalida para la categoria seleccionada" });
     }
+  }
+
+  const duplicate = await findDuplicateExpense({
+    expenseDate,
+    amount,
+    categoryId,
+    subcategoryId: subcategoryId ?? null,
+    placeId: placeId ?? null,
+    excludeId: existing.id
+  });
+
+  if (duplicate) {
+    return res.status(409).json({
+      error: "Ya existe una carga con el mismo importe, fecha, categoría, subcategoría y lugar"
+    });
   }
 
   const updated = await prisma.expense.update({
